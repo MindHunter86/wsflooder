@@ -166,7 +166,12 @@ func connector(ch chan bool, u *url.URL, l *log.Logger, a *net.TCPAddr) ( bool )
 		l.Print("Connection established successfully!")
 	} else { l.Printf("Connection failed! (%s)", e); return false }
 	defer l.Printf( "Disconnected from %s successfully!", u.Host )
-	defer c.Close() // Connection only established!
+
+	if c == nil {
+		l.Print( "I have very strange situation! Kill me, please!" )
+		return false
+	}
+	defer c.Close() // For only established connection!
 
 	wsping := time.NewTicker( time.Second * 10 )
 	defer wsping.Stop()
@@ -193,7 +198,7 @@ func connector(ch chan bool, u *url.URL, l *log.Logger, a *net.TCPAddr) ( bool )
 					defer c.Close()
 					l.Print("Message has zero length");
 					return false
-				} else {} //c.WriteMessage( websocket.TextMessage, m ); }
+				} else { c.WriteMessage( websocket.TextMessage, m ) }
 
 //				switch( m[0] ) {
 //				case '3':
