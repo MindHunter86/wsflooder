@@ -45,23 +45,6 @@ func main() {
 		} else { l.Printf( "Error setting rlimit! (%s)", e ); return }
 	} else { l.Printf( "Error in getting rlimit! (%s)", e ); return }
 
-//	i, e := net.InterfaceByName("eno1"); if e != nil { l.Printf( "EE! Error in getting interfaces! (%s)", e ) }
-//	a, e := i.Addrs(); if e != nil {
-//		l.Printf( "EE! Error in getting IP addresses (%s)", e )
-//	} else { l.Print(a)	}
-//
-//	an, _, e := net.ParseCIDR( a[1].String() )
-//	ad, e := net.ResolveTCPAddr( "tcp4", an.String() + ":0" )
-//
-//	nd := &net.Dialer{ LocalAddr: ad }
-//	wd := &websocket.Dialer{
-//		NetDial: func( n, a string ) ( net.Conn, error ) {
-//			if cn, e := nd.Dial("tcp", a); e == nil {
-//				return cn, nil
-//			} else { return nil, e }
-//		},
-//	}
-
 	var ips []net.Addr
 	if i, e := net.InterfaceByName("eno1"); e == nil {
 		if ips, e = i.Addrs(); e == nil {
@@ -87,9 +70,9 @@ func main() {
 				}
 			} else { l.Printf( "Problem with parsing CIDR! (%s)", e ) }
 
-			for k:=uint16(0); k<1; k++ {
+			for k:=uint16(0); k<64; k++ {
 				go worker( c, u, i, k, w, a )
-				time.Sleep( time.Millisecond * 300 )
+				time.Sleep( time.Millisecond * 500 )
 			}
 		}(i)
 	}
