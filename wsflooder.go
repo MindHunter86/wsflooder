@@ -23,14 +23,15 @@ func main() {
 	c := make( chan bool, 1 )
 	u := &url.URL {
 		Scheme: "ws",
-		Host: "104.24.108.184:2082",
+		Host: "46.105.42.220:2082",
         Path: "/socket.io/",
 		RawQuery: "EIO=3&transport=websocket",
 	}
 	itr := make(chan os.Signal)
 	signal.Notify( itr, os.Interrupt )
 	w := &sync.WaitGroup{}
-	max_cpu := runtime.NumCPU()
+//	max_cpu := runtime.NumCPU()
+	max_cpu := 1
 	runtime.GOMAXPROCS(max_cpu)
 
 	rl := &syscall.Rlimit{}
@@ -70,7 +71,7 @@ func main() {
 				}
 			} else { l.Printf( "Problem with parsing CIDR! (%s)", e ) }
 
-			for k:=uint16(0); k<64; k++ {
+			for k:=uint16(0); k<1; k++ {
 				go worker( c, u, i, k, w, a )
 				time.Sleep( time.Millisecond * 500 )
 			}
@@ -181,16 +182,17 @@ func connector(ch chan bool, u *url.URL, l *log.Logger, a *net.TCPAddr) ( bool )
 					defer c.Close()
 					l.Print("Message has zero length");
 					return false
-				} else { c.WriteMessage( websocket.TextMessage, m ) }
+				} else { }
+//				} else { c.WriteMessage( websocket.TextMessage, m ) }
 
-//				switch( m[0] ) {
-//				case '3':
-//					l.Print("Received PONG from server")
-//				case '4':
-//					l.Printf( "Meassage from server: %s", m )
-//				default:
-//					l.Printf( "Undefined message from server! (%s)", m )
-//				}
+				switch( m[0] ) {
+				case '3':
+					l.Print("Received PONG from server")
+				case '4':
+					l.Printf( "Meassage from server: %s", m )
+				default:
+					l.Printf( "Undefined message from server! (%s)", m )
+				}
 			} else {
 				defer c.Close()
 				l.Printf( "Something wrong in reader! (%s)", e )
