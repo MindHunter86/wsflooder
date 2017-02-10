@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"time"
-//	"fmt"
 	"sync"
 	"net"
 //	"syscall"
@@ -34,14 +33,6 @@ func main() {
 	dstHost = "csgopuzo.com:7703"
 //	dstHost = "csgopuzo.com:7703"	// 7703 port is a chat
 //	dstHost = "csgopuzo.com:7701"	// 7701 port is a roulette
-
-/*
- *	cURL zone:
-
-curl 'http://csgopuzo.com:7703/socket.io/?EIO=3&transport=polling' -H 'Host: csgopuzo.com:7703' -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:51.0) Gecko/20100101 Firefox/51.0' -H 'Accept-Language: en-US,en;q=0.5' --compressed -H 'Referer: http://csgopuzo.com/' -H 'Origin: http://csgopuzo.com' -H 'Cookie: lastupdate=1485879520' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Pragma: no-cache' -H 'Cache-Control: no-cache'
-
-*/
-
 
 	itr := make(chan os.Signal)
 	signal.Notify( itr, os.Interrupt )
@@ -108,8 +99,6 @@ curl 'http://csgopuzo.com:7703/socket.io/?EIO=3&transport=polling' -H 'Host: csg
 			}
 		}()
 	}
-
-	//go worker( c, u, 0, 0, w )
 
 	for {
 		select {
@@ -227,122 +216,3 @@ func (w *Worker) Spawn() (error) {
 	l.Println("INF: Disconnected from DST!")
 	return cn.Close()
 }
-
-
-//func worker(c chan bool, u *url.URL, nc int, nt uint16, w *sync.WaitGroup, a *net.TCPAddr ) {
-//	defer w.Done()
-//	w.Add(1)
-//	l := log.New(os.Stdout, fmt.Sprintf( "[Worker #%d-%d] ", nc, nt ), log.Ldate | log.Ltime | log.Lmicroseconds)
-//	defer l.Print("INF: Worker stopped!")
-//	l.Print( "INF: Worker has been initialized!" )
-//	for {
-//		select {
-//		case cm:=<-c:
-//			switch(cm) {
-//			case false:
-//				l.Print("Worker has been blocked by DROP signal")
-//				return
-//			}
-//		default:
-//			l.Print(" I'm spawning connector ...")
-//			if ! connector(c, u, l, a) {
-//				l.Printf( "I have promblems with my connector. Respawning it ..." )
-//				time.Sleep(time.Second * 5)
-//			} else {
-//				l.Print("I recieve DROP signal!")
-//				return
-//			}
-//		}
-//	}
-//}
-//
-//func connector(ch chan bool, u *url.URL, l *log.Logger, a *net.TCPAddr) ( bool ) {
-//	for {
-//		select {
-//		case <-wsping.C:
-//			if e := c.WriteMessage( websocket.TextMessage, []byte("2") ); e != nil {
-//				defer c.Close()
-//				l.Printf( "Something wrong in pinger! (%s)", e )
-//				return false
-//			}
-//		case cm := <-ch:
-//			l.Println("test message from connector by nonDROP signal")
-//			switch(cm) {
-//			case false:
-//				defer c.Close()
-//				defer wsping.Stop()
-//				l.Print("Connector received DROP signal from worker!")
-//				return true
-//			default:
-//				l.Println("test message from connector by nonDROP signal")
-//			}
-//		default: // reader
-//			l.Println("SPAMER if non block")
-//			var m []byte
-//			if _, r, e := c.NextReader() ; e == nil {
-//				if m, e =	ioutil.ReadAll(r); e == nil {
-//					if len(m) == 0 { l.Print("Readed empty message"); continue }
-//				} else {
-//					defer c.Close()
-//					l.Println( "Error in reading message from IO reader: ", e )
-//					return false
-//				}
-//			} else {
-//				defer c.Close()
-//				l.Println( "Error in reading message: ", e )
-//				return false
-//			}
-//		// if all ifs are OK then we have valid message
-//			switch(m[0]) {
-//			case '3':
-//				l.Print("Received PONG from server")
-//				if e = c.WriteMessage( websocket.TextMessage, []byte("5") ); e != nil {
-//					l.Println( "Some errors after upgrade sending: ", e ); return false
-//				} else { l.Println( "IO UPGRADE has been sended!" ) }
-//			case '4':
-//				l.Printf( "Meassage from server: %s", m )
-//			default:
-//				l.Printf( "Undefined message from server! (%s)", m )
-//				if e = c.WriteMessage( websocket.TextMessage, []byte("2") ); e != nil {
-//					l.Println( "Some errors after ping sending: ", e ); return false
-//				} else { l.Println( "IO PING has been sended!" ) }
-//			}
-//
-//
-//
-////		//	Old shit:
-////			l.Println("SPAMER if non block")
-////			if _, m, e := c.ReadMessage(); e == nil {
-////				if len(m) == 0 {
-////					defer c.Close()
-////					l.Print("Message has zero length");
-////					return false
-////				} else { l.Print(string(m)) }
-//////				} else {
-//////					for z:=0 ; z<10; z++ {
-//////						c.WriteMessage( websocket.TextMessage, m )
-//////					}
-//////				}
-////
-////				switch( m[0] ) {
-////				case '3':
-////					l.Print("Received PONG from server")
-////					if e = c.WriteMessage( websocket.TextMessage, []byte("5") ); e != nil {
-////						l.Println( "Some errors after upgrade sending: ", e ); return false
-////					} else { l.Println( "IO UPGRADE has been sended!" ) }
-////				case '4':
-////					l.Printf( "Meassage from server: %s", m )
-////				default:
-////					l.Printf( "Undefined message from server! (%s)", m )
-////					if e = c.WriteMessage( websocket.TextMessage, []byte("2") ); e != nil {
-////						l.Println( "Some errors after ping sending: ", e ); return false
-////					} else { l.Println( "IO PING has been sended!" ) }
-////				}
-////			} else {
-////				defer c.Close()
-////				l.Printf( "Something wrong in reader! (%s)", e )
-////				return false
-////			}
-//		}
-//	}
-//}
